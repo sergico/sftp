@@ -1,0 +1,11 @@
+logos.sftp.srv:
+    image: ${SFTP_IMAGE}
+    restart: unless-stopped
+    hostname: ${SFTP_HOSTNAME}
+    environment:
+        SFTP_USERS: ${ENV_SFTP_USERS}
+    volumes:
+        - ${SFTP_HOST_UPLOAD_FOLDER}:${SFTP_UPLOAD_FOLDER}
+    ports:
+        - "${SFTP_HOST_PORT}:22"
+

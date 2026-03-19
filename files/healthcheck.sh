@@ -6,7 +6,7 @@ pgrep sshd > /dev/null || exit 1
 # 2. Try to open a TCP connection to the SSH port locally
 # -z: scan for listening daemons without sending data
 # -w 2: timeout after 2 seconds
-nc -z -w 2 localhost 22 || exit 1
+nc -z -w 2 127.0.0.1 22 || exit 1
 
 exit 0
 

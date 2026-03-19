@@ -1,93 +1,180 @@
-# Logos SFTP Server
+# SFTP
 
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/atmoz/sftp/build.yml?logo=github) ![GitHub stars](https://img.shields.io/github/stars/atmoz/sftp?logo=github) ![Docker Stars](https://img.shields.io/docker/stars/atmoz/sftp?label=stars&logo=docker) ![Docker Pulls](https://img.shields.io/docker/pulls/atmoz/sftp?label=pulls&logo=docker)
 
+![OpenSSH logo](https://raw.githubusercontent.com/atmoz/sftp/master/openssh.png "Powered by OpenSSH")
 
-## Getting started
+# Supported tags and respective `Dockerfile` links
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- [`debian`, `latest` (*Dockerfile*)](https://github.com/atmoz/sftp/blob/master/Dockerfile) ![Docker Image Size (debian)](https://img.shields.io/docker/image-size/atmoz/sftp/debian?label=debian&logo=debian&style=plastic)
+- [`alpine` (*Dockerfile*)](https://github.com/atmoz/sftp/blob/master/Dockerfile-alpine) ![Docker Image Size (alpine)](https://img.shields.io/docker/image-size/atmoz/sftp/alpine?label=alpine&logo=Alpine%20Linux&style=plastic)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+# Securely share your files
 
-## Add your files
+Easy to use SFTP ([SSH File Transfer Protocol](https://en.wikipedia.org/wiki/SSH_File_Transfer_Protocol)) server with [OpenSSH](https://en.wikipedia.org/wiki/OpenSSH).
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+# Usage
+
+- Define users in (1) command arguments, (2) `SFTP_USERS` environment variable
+  or (3) in file mounted as `/etc/sftp/users.conf` (syntax:
+  `user:pass[:e][:uid[:gid[:dir1[,dir2]...]]] ...`, see below for examples)
+  - Set UID/GID manually for your users if you want them to make changes to
+    your mounted volumes with permissions matching your host filesystem.
+  - Directory names at the end will be created under user's home directory with
+    write permission, if they aren't already present.
+- Mount volumes
+  - The users are chrooted to their home directory, so you can mount the
+    volumes in separate directories inside the user's home directory
+    (/home/user/**mounted-directory**) or just mount the whole **/home** directory.
+    Just remember that the users can't create new files directly under their
+    own home directory, so make sure there are at least one subdirectory if you
+    want them to upload files.
+  - For consistent server fingerprint, mount your own host keys (i.e. `/etc/ssh/ssh_host_*`)
+
+# Examples
+
+## Simplest docker run example
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.netresults.dev/netresults/kalliopelab/logos-sftp-server.git
-git branch -M main
-git push -uf origin main
+docker run -p 22:22 -d atmoz/sftp foo:pass:::upload
 ```
 
-## Integrate with your tools
+User "foo" with password "pass" can login with sftp and upload files to a folder called "upload". No mounted directories or custom UID/GID. Later you can inspect the files and use `--volumes-from` to mount them somewhere else (or see next example).
 
-* [Set up project integrations](https://gitlab.netresults.dev:10443/netresults/kalliopelab/logos-sftp-server/-/settings/integrations)
+## Sharing a directory from your computer
 
-## Collaborate with your team
+Let's mount a directory and set UID:
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```
+docker run \
+    -v <host-dir>/upload:/home/foo/upload \
+    -p 2222:22 -d atmoz/sftp \
+    foo:pass:1001
+```
 
-## Test and Deploy
+### Using Docker Compose:
 
-Use the built-in continuous integration in GitLab.
+```
+sftp:
+    image: atmoz/sftp
+    volumes:
+        - <host-dir>/upload:/home/foo/upload
+    ports:
+        - "2222:22"
+    command: foo:pass:1001
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Logging in
 
-***
+The OpenSSH server runs by default on port 22, and in this example, we are forwarding the container's port 22 to the host's port 2222. To log in with the OpenSSH client, run: `sftp -P 2222 foo@<host-ip>`
 
-# Editing this README
+## Store users in config
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```
+docker run \
+    -v <host-dir>/users.conf:/etc/sftp/users.conf:ro \
+    -v mySftpVolume:/home \
+    -p 2222:22 -d atmoz/sftp
+```
 
-## Suggestions for a good README
+<host-dir>/users.conf:
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```
+foo:123:1001:100
+bar:abc:1002:100
+baz:xyz:1003:100
+```
 
-## Name
-Choose a self-explaining name for your project.
+## Encrypted password
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Add `:e` behind password to mark it as encrypted. Use single quotes if using terminal.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```
+docker run \
+    -v <host-dir>/share:/home/foo/share \
+    -p 2222:22 -d atmoz/sftp \
+    'foo:$1$0G2g0GSt$ewU0t6GXG15.0hWoOX8X9.:e:1001'
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Tip: you can use this Python code to generate encrypted passwords:  
+`docker run --rm python:alpine python -c "import crypt; print(crypt.crypt('YOUR_PASSWORD'))"`
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Logging in with SSH keys
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Mount public keys in the user's `.ssh/keys/` directory. All keys are automatically appended to `.ssh/authorized_keys` (you can't mount this file directly, because OpenSSH requires limited file permissions). In this example, we do not provide any password, so the user `foo` can only login with his SSH key.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```
+docker run \
+    -v <host-dir>/id_rsa.pub:/home/foo/.ssh/keys/id_rsa.pub:ro \
+    -v <host-dir>/id_other.pub:/home/foo/.ssh/keys/id_other.pub:ro \
+    -v <host-dir>/share:/home/foo/share \
+    -p 2222:22 -d atmoz/sftp \
+    foo::1001
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Providing your own SSH host key (recommended)
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+This container will generate new SSH host keys at first run. To avoid that your users get a MITM warning when you recreate your container (and the host keys changes), you can mount your own host keys.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```
+docker run \
+    -v <host-dir>/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key \
+    -v <host-dir>/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key \
+    -v <host-dir>/share:/home/foo/share \
+    -p 2222:22 -d atmoz/sftp \
+    foo::1001
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Tip: you can generate your keys with these commands:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```
+ssh-keygen -t ed25519 -f ssh_host_ed25519_key < /dev/null
+ssh-keygen -t rsa -b 4096 -f ssh_host_rsa_key < /dev/null
+```
 
-## License
-For open source projects, say how it is licensed.
+## Execute custom scripts or applications
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Put your programs in `/etc/sftp.d/` and it will automatically run when the container starts.
+See next section for an example.
+
+## Bindmount dirs from another location
+
+If you are using `--volumes-from` or just want to make a custom directory available in user's home directory, you can add a script to `/etc/sftp.d/` that bindmounts after container starts.
+
+```
+#!/bin/bash
+# File mounted as: /etc/sftp.d/bindmount.sh
+# Just an example (make your own)
+
+function bindmount() {
+    if [ -d "$1" ]; then
+        mkdir -p "$2"
+    fi
+    mount --bind $3 "$1" "$2"
+}
+
+# Remember permissions, you may have to fix them:
+# chown -R :users /data/common
+
+bindmount /data/admin-tools /home/admin/tools
+bindmount /data/common /home/dave/common
+bindmount /data/common /home/peter/common
+bindmount /data/docs /home/peter/docs --read-only
+```
+
+**NOTE:** Using `mount` requires that your container runs with the `CAP_SYS_ADMIN` capability turned on. [See this answer for more information](https://github.com/atmoz/sftp/issues/60#issuecomment-332909232).
+
+# What's the difference between Debian and Alpine?
+
+The biggest differences are in size and OpenSSH version. [Alpine](https://hub.docker.com/_/alpine/) is 10 times smaller than [Debian](https://hub.docker.com/_/debian/). OpenSSH version can also differ, as it's two different teams maintaining the packages. Debian is generally considered more stable and only bugfixes and security fixes are added after each Debian release (about 2 years). Alpine has a faster release cycle (about 6 months) and therefore newer versions of OpenSSH. As I'm writing this, Debian has version 7.4 while Alpine has version 7.5. Recommended reading: [Comparing Debian vs Alpine for container & Docker apps](https://www.turnkeylinux.org/blog/alpine-vs-debian)
+
+# What version of OpenSSH do I get?
+
+It depends on which linux distro and version you choose (see available images at the top). You can see what version you get by checking the distro's packages online. I have provided direct links below for easy access.
+
+- [List of `openssh` packages on Alpine releases](https://pkgs.alpinelinux.org/packages?name=openssh&branch=&repo=main&arch=x86_64)
+- [List of `openssh-server` packages on Debian releases](https://packages.debian.org/search?keywords=openssh-server&searchon=names&exact=1&suite=all&section=main)
+
+# Daily builds
+
+Images are automatically built daily to get the newest version of OpenSSH provided by the package managers.
